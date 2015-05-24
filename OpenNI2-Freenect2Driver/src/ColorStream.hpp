@@ -25,7 +25,7 @@ namespace Freenect2Driver
 
     static FreenectVideoModeMap getSupportedVideoModes();
     OniStatus setVideoMode(OniVideoMode requested_mode);
-    void populateFrame(libfreenect2::Frame* srcFrame, int srcX, int srcY, OniFrame* dstFrame, int dstX, int dstY, int width, int height) const;
+    void populateFrame(void* data, OniFrame* frame) const;
     
     bool auto_white_balance;
     bool auto_exposure;

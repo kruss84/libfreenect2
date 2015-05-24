@@ -52,10 +52,13 @@ OniStatus ColorStream::setVideoMode(OniVideoMode requested_mode)
   return ONI_STATUS_OK;
 }
 
-void ColorStream::populateFrame(libfreenect2::Frame* srcFrame, int srcX, int srcY, OniFrame* dstFrame, int dstX, int dstY, int width, int height) const
+void ColorStream::populateFrame(void* data, OniFrame* frame) const
 {
-  dstFrame->sensorType = sensor_type;
-  dstFrame->stride = dstFrame->width * 3;
+  frame->sensorType = sensor_type;
+  frame->stride = video_mode.resolutionX * 3;
+  frame->cropOriginX = 0;
+  frame->cropOriginY = 0;
+  frame->croppingEnabled = false;
 
   // copy stream buffer from freenect
   switch (video_mode.pixelFormat)
@@ -65,7 +68,7 @@ void ColorStream::populateFrame(libfreenect2::Frame* srcFrame, int srcX, int src
       return;
 
     case ONI_PIXEL_FORMAT_RGB888:
-      reg->colorFrameRGB888(srcFrame, dstFrame);
+      reg->colorFrameRGB888(static_cast<uint8_t*>(data), frame);
       return;
   }
 }
