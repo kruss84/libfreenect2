@@ -14,9 +14,9 @@ namespace Freenect2Driver
   {
   public:
     // from NUI library and converted to radians
-    static const float DIAGONAL_FOV;
-    static const float HORIZONTAL_FOV;
-    static const float VERTICAL_FOV;
+    static const float DIAGONAL_FOV = 70 * (M_PI / 180);
+    static const float HORIZONTAL_FOV = 58.5 * (M_PI / 180);
+    static const float VERTICAL_FOV = 45.6 * (M_PI / 180);
     // from DepthKinectStream.cpp
     static const int MAX_VALUE = 10000;
     static const unsigned long long GAIN_VAL = 42;
@@ -25,8 +25,8 @@ namespace Freenect2Driver
     static const unsigned long long PARAM_COEFF_VAL = 4;
     static const unsigned long long SHIFT_SCALE_VAL = 10;
     static const unsigned long long ZERO_PLANE_DISTANCE_VAL = 120;
-    static const double ZERO_PLANE_PIXEL_SIZE_VAL;
-    static const double EMITTER_DCMOS_DISTANCE_VAL;
+    static const double ZERO_PLANE_PIXEL_SIZE_VAL = 0.10520000010728836;
+    static const double EMITTER_DCMOS_DISTANCE_VAL = 7.5;
 
   private:
     typedef std::map< OniVideoMode, std::pair<freenect2_ir_format, freenect2_resolution> > FreenectIrModeMap;
@@ -35,7 +35,7 @@ namespace Freenect2Driver
 
     static FreenectIrModeMap getSupportedVideoModes();
     OniStatus setVideoMode(OniVideoMode requested_mode);
-    void populateFrame(libfreenect2::Frame* srcFrame, int srcX, int srcY, OniFrame* dstFrame, int dstX, int dstY, int width, int height) const;
+    void populateFrame(void* data, OniFrame* frame) const;
 
   public:
     IrStream(libfreenect2::Freenect2Device* pDevice, Freenect2Driver::Registration *reg);

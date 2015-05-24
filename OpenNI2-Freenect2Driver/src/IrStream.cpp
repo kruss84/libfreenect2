@@ -3,20 +3,6 @@
 
 using namespace Freenect2Driver;
 
-// from NUI library and converted to radians
-const float IrStream::DIAGONAL_FOV = 70 * (M_PI / 180);
-const float IrStream::HORIZONTAL_FOV = 58.5 * (M_PI / 180);
-const float IrStream::VERTICAL_FOV = 45.6 * (M_PI / 180);
-// from DepthKinectStream.cpp
-const int IrStream::MAX_VALUE;
-const unsigned long long IrStream::GAIN_VAL;
-const unsigned long long IrStream::CONST_SHIFT_VAL;
-const unsigned long long IrStream::MAX_SHIFT_VAL;
-const unsigned long long IrStream::PARAM_COEFF_VAL;
-const unsigned long long IrStream::SHIFT_SCALE_VAL;
-const unsigned long long IrStream::ZERO_PLANE_DISTANCE_VAL;
-const double IrStream::ZERO_PLANE_PIXEL_SIZE_VAL = 0.10520000010728836;
-const double IrStream::EMITTER_DCMOS_DISTANCE_VAL = 7.5;
 
 IrStream::IrStream(libfreenect2::Freenect2Device* pDevice, Freenect2Driver::Registration *reg) : VideoStream(pDevice, reg)
 {
@@ -50,13 +36,58 @@ OniStatus IrStream::setVideoMode(OniVideoMode requested_mode)
   return ONI_STATUS_OK;
 }
 
-void IrStream::populateFrame(libfreenect2::Frame* srcFrame, int srcX, int srcY, OniFrame* dstFrame, int dstX, int dstY, int width, int height) const
+void IrStream::populateFrame(void* data, OniFrame* frame) const
 {
-  dstFrame->sensorType = sensor_type;
-  dstFrame->stride = dstFrame->width * sizeof(uint16_t);
+  frame->sensorType = sensor_type;
+  frame->stride = video_mode.resolutionX * sizeof(uint16_t);
+
+  if (cropping.enabled)
+  {
+    frame->height = cropping.height;
+    frame->width = cropping.width;
+    frame->cropOriginX = cropping.originX;
+    frame->cropOriginY = cropping.originY;
+    frame->croppingEnabled = true;
+  }
+  else
+  {
+    frame->cropOriginX = 0;
+    frame->cropOriginY = 0;
+    frame->croppingEnabled = false;
+  }
+
 
   // copy stream buffer from freenect
-  copyFrame(static_cast<float*>((void*)srcFrame->data), srcX, srcY, srcFrame->width,
-            static_cast<uint16_t*>(dstFrame->data), dstX, dstY, dstFrame->width,
-            width, height, mirroring);
+
+  float* source = static_cast<float*>(data) + frame->cropOriginX + frame->cropOriginY * video_mode.resolutionX;
+  uint16_t* target = static_cast<uint16_t*>(frame->data);
+  const unsigned int skipWidth = video_mode.resolutionX - frame->width;
+
+  if (mirroring)
+  {
+    target += frame->width;
+
+    for (int y = 0; y < frame->height; y++)
+    {
+      for (int x = 0; x < frame->width; x++)
+      {
+        *target-- = *source++;
+      }
+
+      source += skipWidth;
+      target += 2 * frame->width;
+    }
+  }
+  else
+  {
+    for (int y = 0; y < frame->height; y++)
+    {
+      for (int x = 0; x < frame->width; x++)
+      {
+        *target++ = *source++;
+      }
+
+      source += skipWidth;
+    }
+  }
 }
