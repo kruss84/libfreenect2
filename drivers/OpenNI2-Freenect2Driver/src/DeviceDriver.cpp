@@ -142,10 +142,10 @@ namespace Freenect2Driver
     }
     ~Device()
     {
-      close();
       destroyStream(color);
       destroyStream(ir);
       destroyStream(depth);
+      close();
       if (reg) {
         delete reg;
         reg = NULL;
@@ -181,14 +181,33 @@ namespace Freenect2Driver
       dev->start();
     }
     void stop() { 
-      device_stop = true;
-      thread->join();
-
-      dev->stop(); 
+      if (!device_stop) {
+        device_stop = true;
+        thread->join();
+        dev->stop();
+      }
+      if (color != NULL)
+      {
+        delete color;
+        color = NULL;
+      }
+      if (depth != NULL)
+      {
+        delete depth;
+        depth = NULL;
+      }
+      if (ir != NULL)
+      {
+        delete ir;
+        ir = NULL;
+      }
     }
     void close() { 
-      stop();
-      dev->close(); 
+      if (this->dev) {
+        stop();
+        dev->close();
+      }
+      this->dev = NULL;
     }
 
     // for DeviceBase
@@ -214,36 +233,25 @@ namespace Freenect2Driver
           LogError("Cannot create a stream of type " + to_string(sensorType));
           return NULL;
         case ONI_SENSOR_COLOR:
+          WriteMessage("Device: createStream(color)");
           return color;
         case ONI_SENSOR_DEPTH:
+          WriteMessage("Device: createStream(depth)");
           return depth;
         case ONI_SENSOR_IR:
+          WriteMessage("Device: createStream(ir)");
           return ir;
       }
     }
 
     void destroyStream(oni::driver::StreamBase* pStream)
     {
-      if (pStream == NULL)
-        return;
-
-      // stop them all
-      dev->stop();
       if (pStream == color)
-      {
-        delete color;
-        color = NULL;
-      }
+        WriteMessage("Device: destroyStream(color)");
       if (pStream == depth)
-      {
-        delete depth;
-        depth = NULL;
-      }
+        WriteMessage("Device: destroyStream(depth)");
       if (pStream == ir)
-      {
-        delete ir;
-        ir = NULL;
-      }
+        WriteMessage("Device: destroyStream(ir)");
     }
 
     // todo: fill out properties
@@ -510,16 +518,10 @@ namespace Freenect2Driver
     {
       for (OniDeviceMap::iterator iter = devices.begin(); iter != devices.end(); iter++)
       {
-        WriteMessage("Closing device " + std::string(iter->first.uri));
-        int id = uri_to_devid(iter->first.uri);
-        Device* device = (Device*)iter->second;
-        if (device) {
-          device->stop();
-          device->close();
+        if (iter->second) {
+          deviceClose(iter->second);
         }
       }
-
-      devices.clear();
     }
 
 

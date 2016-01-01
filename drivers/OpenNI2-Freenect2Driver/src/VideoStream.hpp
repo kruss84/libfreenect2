@@ -93,7 +93,8 @@ namespace Freenect2Driver
       device(device),
       reg(reg),
       callPropertyChangedCallback(false),
-      mirroring(false)
+      mirroring(false),
+      running(false)
       {
         // joy of structs
         memset(&cropping, 0, sizeof(cropping));
