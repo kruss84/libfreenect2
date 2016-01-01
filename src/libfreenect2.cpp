@@ -422,19 +422,80 @@ public:
     has_device_enumeration_ = false;
   }
 
+  void resetParentHub(libusb_device *dev)
+  {
+    LOG_INFO << "reset Kinect Super Speed HUB " << PrintBusAndDevice(dev);
+
+    libusb_device_handle *dev_handle;
+    int r = libusb_open(dev, &dev_handle);
+    if(r == LIBUSB_SUCCESS)
+    {
+        int port = 1;
+
+        /*
+         *  port power off/on to reset Kinect v2
+         */
+        int bus = libusb_get_bus_number(dev);
+        int address = libusb_get_device_address(dev);
+        r = libusb_control_transfer(dev_handle,
+                                    0x23,  // bmRequestType
+                                    LIBUSB_REQUEST_CLEAR_FEATURE,
+                                    8, // PORT_POWER
+                                    port,
+                                    NULL,
+                                    0,
+                                    0);
+        if (r != 0) {
+            LOG_INFO << "set port power OFF: ERROR";
+        }
+        libfreenect2::this_thread::sleep_for(libfreenect2::chrono::milliseconds(400));
+        r = libusb_control_transfer(dev_handle,
+                                    0x23,  // bmRequestType
+                                    LIBUSB_REQUEST_SET_FEATURE,
+                                    8, // PORT_POWER
+                                    port,
+                                    NULL,
+                                    0,
+                                    0);
+        if (r != 0) {
+          LOG_INFO << "set port power ON: ERROR";
+        }
+        libfreenect2::this_thread::sleep_for(libfreenect2::chrono::milliseconds(400));
+            
+        libusb_close(dev_handle);
+    } else {
+      LOG_ERROR << "failed to open Kinect v2 HUB: " << PrintBusAndDevice(dev, r);
+    }
+  }
+
   void enumerateDevices()
   {
     if (!initialized)
       return;
 
+    int retry = 16;
+  retry:
     LOG_INFO << "enumerating devices...";
     libusb_device **device_list;
     int num_devices = libusb_get_device_list(usb_context_, &device_list);
+    std::vector<libusb_device *> parent_hub_list;
 
     LOG_INFO << num_devices << " usb devices connected";
 
     if(num_devices > 0)
     {
+      for(int idx = 0; idx < num_devices; ++idx)
+      {
+        libusb_device *dev = device_list[idx];
+        libusb_device_descriptor dev_desc;
+
+        int r = libusb_get_device_descriptor(dev, &dev_desc); // this is always successful
+        if(dev_desc.idVendor == Freenect2Device::VendorId && dev_desc.idProduct == 729 && dev_desc.bDeviceProtocol == 3)
+        {
+          parent_hub_list.push_back(libusb_ref_device(dev));
+        }
+      }
+
       for(int idx = 0; idx < num_devices; ++idx)
       {
         libusb_device *dev = device_list[idx];
@@ -498,6 +559,34 @@ public:
     has_device_enumeration_ = true;
 
     LOG_INFO << "found " << enumerated_devices_.size() << " devices";
+
+    num_devices = enumerated_devices_.size();
+    for(int idx = 0; idx < num_devices; ++idx)
+    {
+      libusb_device *parent_hub = libusb_get_parent(enumerated_devices_[idx].dev);
+      std::vector<libusb_device*>::iterator it = parent_hub_list.begin();
+      while (it != parent_hub_list.end())
+      {
+        if (*it == parent_hub) {
+          it = parent_hub_list.erase(it);
+          libusb_unref_device(parent_hub);
+        } else {
+          it++;
+        }
+      }
+      libusb_unref_device(parent_hub);
+    }
+
+    int num_orphans = parent_hub_list.size();
+    if (0 < --retry && 0 < num_orphans) {
+      LOG_INFO << num_orphans + num_devices << " sensor(s) should be there. retry...";
+      for(int idx = 0; idx < num_orphans; ++idx) {
+        resetParentHub(parent_hub_list[idx]);
+        libusb_unref_device(parent_hub_list[idx]);
+      }
+      parent_hub_list.clear();
+      goto retry;
+    }
   }
 
   int getNumDevices()
