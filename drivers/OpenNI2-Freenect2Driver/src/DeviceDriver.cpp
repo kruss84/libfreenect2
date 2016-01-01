@@ -166,7 +166,19 @@ namespace Freenect2Driver
       //TODO: start thread executing the run() method
       //device_stop = false;
       //thread = new libfreenect2::thread(&Device::static_run, this);
-      dev->start(); 
+      if (! color) {
+        color = new ColorStream(dev, reg);
+        setStreamProperties(color, "color");
+      }
+      if (! depth) {
+        depth = new DepthStream(dev, reg);
+        setStreamProperties(depth, "depth");
+      }
+      if (! ir) {
+        ir = new IrStream(dev, reg);
+        setStreamProperties(ir, "ir");
+      }
+      dev->start();
     }
     void stop() { 
       device_stop = true;
@@ -202,22 +214,10 @@ namespace Freenect2Driver
           LogError("Cannot create a stream of type " + to_string(sensorType));
           return NULL;
         case ONI_SENSOR_COLOR:
-          if (! color) {
-            color = new ColorStream(dev, reg);
-            setStreamProperties(color, "color");
-          }
           return color;
         case ONI_SENSOR_DEPTH:
-          if (! depth) {
-            depth = new DepthStream(dev, reg);
-            setStreamProperties(depth, "depth");
-          }
           return depth;
         case ONI_SENSOR_IR:
-          if (! ir) {
-            ir = new IrStream(dev, reg);
-            setStreamProperties(ir, "ir");
-          }
           return ir;
       }
     }
@@ -464,6 +464,7 @@ namespace Freenect2Driver
             Device* device = new Device(id);
             device->setFreenect2Device(freenect2.openDevice(id)); // XXX, detault pipeline // const PacketPipeline *factory);
             device->setConfigStrings(config);
+            device->start();
             iter->second = device;
             return device;
           }
